@@ -1,0 +1,10 @@
+{
+  "name": "RCDlogiq",
+  "short_name": "RCDlogiq",
+  "description": "Gestion integral de RCD.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f3",
+  "theme_color": "#101820",
+  "icons": []
+}

@@ -1,0 +1,41 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Length 1712 >> stream
+BT /F1 11 Tf 42 760 Td (RCD Passport - Certificado de disposicion) Tj ET
+BT /F1 11 Tf 42 734 Td (Servicio: dc7f7e88-9350-4a63-b6cb-cb5089de5c1d) Tj ET
+BT /F1 11 Tf 42 708 Td (Residue Passport: PAS-DC7F7E889350) Tj ET
+BT /F1 11 Tf 42 682 Td (QR: http://localhost:3000/passport/PAS-DC7F7E889350) Tj ET
+BT /F1 11 Tf 42 656 Td (Cliente: Constructora Norte) Tj ET
+BT /F1 11 Tf 42 630 Td (Obra: QA Fase 3 Obra 1778778746385) Tj ET
+BT /F1 11 Tf 42 604 Td (Direccion: Calle 100 # 19-01) Tj ET
+BT /F1 11 Tf 42 578 Td (Transportador: Volquetas Andes SAS) Tj ET
+BT /F1 11 Tf 42 552 Td (Planta receptora: EcoRCD Fontibon) Tj ET
+BT /F1 11 Tf 42 526 Td (Residuo: mixto) Tj ET
+BT /F1 11 Tf 42 500 Td (Peso neto: 7500.00 kg) Tj ET
+BT /F1 11 Tf 42 474 Td (Timeline:) Tj ET
+BT /F1 11 Tf 42 448 Td (- 2026-05-14 12:12:26.599286-05 solicitud creada \(pendiente\)) Tj ET
+BT /F1 11 Tf 42 422 Td (- 2026-05-14 12:12:26.65816-05 viaje asignado \(asignado\)) Tj ET
+BT /F1 11 Tf 42 396 Td (- 2026-05-14 12:12:26.721658-05 transportador acepta viaje \(aceptado\)) Tj ET
+BT /F1 11 Tf 42 370 Td (- 2026-05-14 12:12:26.760331-05 transportador cambia a en camino \(en camino\)) Tj ET
+BT /F1 11 Tf 42 344 Td (- 2026-05-14 12:12:26.786415-05 transportador cambia a cargando \(cargando\)) Tj ET
+BT /F1 11 Tf 42 318 Td (- 2026-05-14 12:12:26.804633-05 transportador cambia a cargado \(cargado\)) Tj ET
+BT /F1 11 Tf 42 292 Td (- 2026-05-14 12:12:26.821258-05 transportador cambia a en transito \(en transito\)) Tj ET
+BT /F1 11 Tf 42 266 Td (- 2026-05-14 12:12:26.838539-05 planta recibe carga \(recibido en planta\)) Tj ET
+BT /F1 11 Tf 42 240 Td (Evidencias:) Tj ET
+BT /F1 11 Tf 42 214 Td (Hash verificacion: 64633766376538382d393335302d3461) Tj ET
+endstream endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+2075
+%%EOF

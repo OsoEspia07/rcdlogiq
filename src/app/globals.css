@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f7f3;
+  --foreground: #101820;
+  --muted: #66736b;
+  --panel: #ffffff;
+  --line: #d8ded6;
+  --accent: #2f6b4f;
+  --accent-2: #d7a642;
+  --danger: #b5473f;
+  --ink: #101820;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(135deg, rgba(47, 107, 79, 0.12), transparent 34rem),
+    radial-gradient(circle at 84% 10%, rgba(215, 166, 66, 0.18), transparent 22rem),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.industrial-grid {
+  background-image:
+    linear-gradient(rgba(16, 24, 32, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 24, 32, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.qr-grid {
+  background:
+    conic-gradient(from 90deg at 2px 2px, #101820 90deg, transparent 0) 0 0 / 12px 12px,
+    linear-gradient(90deg, transparent 44%, #101820 44% 56%, transparent 56%),
+    linear-gradient(transparent 44%, #101820 44% 56%, transparent 56%),
+    #fff;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .truck-motion {
+    animation: truck 4.8s ease-in-out infinite;
+  }
+}
+
+@keyframes truck {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(18px);
+  }
+}
