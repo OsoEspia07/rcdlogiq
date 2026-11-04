@@ -17,6 +17,7 @@ type VehiclePoint = MapPoint & {
 type Props = {
   allowLocationRequest?: boolean;
   autoFollowVehicle?: boolean;
+  simulatedProgress?: number;
   destination: MapPoint | null;
   onRequestLocation?: () => void;
   routeOrigin: MapPoint | null;
@@ -59,6 +60,7 @@ type GoogleDirectionsResult = {
   routes: Array<{
     bounds: unknown;
     overview_path: GoogleLatLng[];
+    legs?: Array<{ steps?: Array<{ path: GoogleLatLng[] }> }>;
   }>;
 };
 
@@ -153,6 +155,45 @@ function distanceToRouteMeters(point: { latitude: number; longitude: number }, r
   return nearest;
 }
 
+function routePointAtProgress(path: GoogleLatLng[], progress: number) {
+  if (!path.length) return null;
+  if (path.length === 1) return { latitude: path[0].lat(), longitude: path[0].lng(), heading: 0 };
+  const lengths = path.slice(1).map((point, index) => metersBetween(
+    { latitude: path[index].lat(), longitude: path[index].lng() },
+    { latitude: point.lat(), longitude: point.lng() },
+  ));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  let remaining = (Math.max(0, Math.min(100, progress)) / 100) * total;
+  for (let index = 0; index < lengths.length; index += 1) {
+    const length = lengths[index];
+    if (remaining <= length || index === lengths.length - 1) {
+      const ratio = length === 0 ? 0 : Math.min(1, remaining / length);
+      const start = path[index];
+      const end = path[index + 1];
+      const latitude = start.lat() + (end.lat() - start.lat()) * ratio;
+      const longitude = start.lng() + (end.lng() - start.lng()) * ratio;
+      const deltaLongitude = ((end.lng() - start.lng()) * Math.PI) / 180;
+      const latitude1 = (start.lat() * Math.PI) / 180;
+      const latitude2 = (end.lat() * Math.PI) / 180;
+      const y = Math.sin(deltaLongitude) * Math.cos(latitude2);
+      const x = Math.cos(latitude1) * Math.sin(latitude2) - Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(deltaLongitude);
+      return { latitude, longitude, heading: ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360 };
+    }
+    remaining -= length;
+  }
+  return null;
+}
+
+function simulatedRoutePoint(legs: GoogleLatLng[][], progress: number) {
+  if (!legs.length) return null;
+  const value = Math.max(0, Math.min(100, progress));
+  if (legs.length === 1) return routePointAtProgress(legs[0], value);
+  const stopProgress = 26;
+  const legIndex = value <= stopProgress ? 0 : 1;
+  const legProgress = legIndex === 0 ? value / stopProgress * 100 : (value - stopProgress) / (100 - stopProgress) * 100;
+  return routePointAtProgress(legs[Math.min(legIndex, legs.length - 1)], legProgress);
+}
+
 function loadGoogleMaps(apiKey: string) {
   if (typeof window === "undefined") return Promise.reject(new Error("Google Maps solo esta disponible en el navegador."));
   const googleWindow = window as GoogleWindow;
@@ -179,7 +220,7 @@ function loadGoogleMaps(apiKey: string) {
   return googleMapsPromise;
 }
 
-export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle = true, destination, onRequestLocation, routeOrigin, serviceStatus, vehicle }: Props) {
+export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle = true, simulatedProgress, destination, onRequestLocation, routeOrigin, serviceStatus, vehicle }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMap | null>(null);
@@ -190,6 +231,7 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
   const directionsServiceRef = useRef<GoogleDirectionsService | null>(null);
   const directionsRendererRef = useRef<GoogleDirectionsRenderer | null>(null);
   const routePathRef = useRef<GoogleLatLng[]>([]);
+  const routeLegPathsRef = useRef<GoogleLatLng[][]>([]);
   const lastRouteAtRef = useRef(0);
   const lastRouteOriginRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const lastTargetKeyRef = useRef("");
@@ -296,14 +338,14 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
     };
   }, [apiKey]);
 
-  function vehicleIcon() {
+  function vehicleIcon(heading = vehicle?.heading ?? 0) {
     const maps = mapsRef.current;
     if (!maps) return {};
     return {
       fillColor: "#101820",
       fillOpacity: 1,
       path: maps.SymbolPath.FORWARD_CLOSED_ARROW,
-      rotation: vehicle?.heading ?? 0,
+      rotation: heading,
       scale: 6,
       strokeColor: "#ffffff",
       strokeWeight: 2,
@@ -347,6 +389,10 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
         }
         directionsRenderer.setDirections(result);
         routePathRef.current = result.routes[0].overview_path;
+        routeLegPathsRef.current = result.routes[0].legs?.map((leg) => {
+          const path = leg.steps?.flatMap((step) => step.path) ?? [];
+          return path.length ? path : result.routes[0].overview_path;
+        }) ?? [result.routes[0].overview_path];
         lastRouteAtRef.current = Date.now();
         lastRouteOriginRef.current = hasCoords(vehicle) ? { latitude: vehicle.latitude, longitude: vehicle.longitude } : null;
         lastTargetKeyRef.current = routeSignature;
@@ -378,30 +424,33 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
     }
     if (!hasCoords(vehicle)) window.setTimeout(() => setRouteMessage("Ruta operacional visible. Activa ubicacion para ver el vehiculo real."), 0);
 
-    if (hasCoords(vehicle)) {
+    const simulatedPoint = simulatedProgress === undefined ? null : simulatedRoutePoint(routeLegPathsRef.current, simulatedProgress);
+    const markerPoint = simulatedPoint ?? (hasCoords(vehicle) ? { latitude: vehicle.latitude, longitude: vehicle.longitude, heading: (vehicle as VehiclePoint).heading ?? 0 } : null);
+
+    if (markerPoint && hasCoords(vehicle)) {
       vehicleMarkerRef.current?.setMap(map);
-      vehicleMarkerRef.current?.setPosition({ lat: vehicle.latitude, lng: vehicle.longitude });
+      vehicleMarkerRef.current?.setPosition({ lat: markerPoint.latitude, lng: markerPoint.longitude });
       vehicleMarkerRef.current?.setTitle(vehicle.label);
-      vehicleMarkerRef.current?.setIcon(vehicleIcon());
+      vehicleMarkerRef.current?.setIcon(vehicleIcon(markerPoint.heading));
     }
 
-    if (hasCoords(vehicle) && autoFollowVehicle && followVehicle && Date.now() > followPausedUntilRef.current) {
-      map.panTo({ lat: vehicle.latitude, lng: vehicle.longitude });
+    if (markerPoint && autoFollowVehicle && followVehicle && Date.now() > followPausedUntilRef.current) {
+      map.panTo({ lat: markerPoint.latitude, lng: markerPoint.longitude });
     }
 
     const movedFromLastRoute = hasCoords(vehicle) && lastRouteOriginRef.current ? metersBetween(lastRouteOriginRef.current, vehicle) : 0;
-    const offRoute = hasCoords(vehicle) ? distanceToRouteMeters(vehicle, routePathRef.current) > 60 : false;
+    const offRoute = simulatedProgress === undefined && hasCoords(vehicle) ? distanceToRouteMeters(vehicle, routePathRef.current) > 60 : false;
     const canRecalculate = Date.now() - lastRouteAtRef.current > 20_000;
     if (lastTargetKeyRef.current !== routeSignature) {
       recalculateRoute("target");
     } else if (canRecalculate && offRoute) {
       recalculateRoute("off-route");
-    } else if (canRecalculate && movedFromLastRoute > 80) {
+    } else if (simulatedProgress === undefined && canRecalculate && movedFromLastRoute > 80) {
       recalculateRoute("movement");
     }
   // The route recalculation helpers intentionally read the latest marker refs and props in this effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRouteTargetKey, autoFollowVehicle, destination, followVehicle, mapState, originKey, routeOrigin, routeSignature, serviceStatus, targetKey, vehicle]);
+  }, [activeRouteTargetKey, autoFollowVehicle, destination, followVehicle, mapState, originKey, routeOrigin, routeSignature, serviceStatus, simulatedProgress, targetKey, vehicle]);
 
   function centerVehicle() {
     if (!hasCoords(vehicle)) {

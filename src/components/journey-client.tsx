@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LiveRouteMap } from "@/components/live-route-map";
 import type { ServiceStatus } from "@/lib/database.types";
 
@@ -16,17 +16,7 @@ const stages = [
 
 const route = [
   { lat: 4.700, lng: -74.045 }, // Punto de salida al norte de la obra
-  { lat: 4.690, lng: -74.047 },
-  { lat: 4.680, lng: -74.050 },
   { lat: 4.668, lng: -74.052 }, // Obra Los Cedros, Chapinero
-  { lat: 4.668, lng: -74.061 },
-  { lat: 4.672, lng: -74.070 },
-  { lat: 4.676, lng: -74.079 },
-  { lat: 4.679, lng: -74.089 },
-  { lat: 4.681, lng: -74.100 },
-  { lat: 4.680, lng: -74.110 },
-  { lat: 4.678, lng: -74.122 },
-  { lat: 4.678, lng: -74.135 },
   { lat: 4.678, lng: -74.145 }, // Planta Fontibón
 ];
 
@@ -41,35 +31,14 @@ function TruckIcon({ small = false }: { small?: boolean }) {
 }
 
 function RouteMap({ progress, status }: { progress: number; status: string }) {
-  const routePosition = useMemo(() => {
-    const segmentLengths = route.slice(1).map((point, index) => {
-      const previous = route[index];
-      return Math.hypot((point.lat - previous.lat) * 111, (point.lng - previous.lng) * 111 * Math.cos((point.lat * Math.PI) / 180));
-    });
-    const length = segmentLengths.reduce((sum, segment) => sum + segment, 0);
-    let remaining = (progress / 100) * length;
-    for (let index = 0; index < segmentLengths.length; index += 1) {
-      const segment = segmentLengths[index];
-      if (remaining <= segment || index === segmentLengths.length - 1) {
-        const ratio = segment === 0 ? 0 : Math.min(1, remaining / segment);
-        return [
-          route[index].lat + (route[index + 1].lat - route[index].lat) * ratio,
-          route[index].lng + (route[index + 1].lng - route[index].lng) * ratio,
-        ] as [number, number];
-      }
-      remaining -= segment;
-    }
-    return [route[0].lat, route[0].lng] as [number, number];
-  }, [progress]);
-
   const mapStatus = (stages.find((stage) => stage.status === status)?.mapStatus ?? "en camino") as ServiceStatus;
   return (
     <LiveRouteMap
-      autoFollowVehicle={false}
-      destination={{ label: "Planta de aprovechamiento Fontibón", latitude: route[route.length - 1].lat, longitude: route[route.length - 1].lng }}
-      routeOrigin={{ label: "Obra Los Cedros · Chapinero", latitude: route[3].lat, longitude: route[3].lng }}
+      simulatedProgress={progress}
+      destination={{ label: "Planta de aprovechamiento Fontibón", latitude: route[2].lat, longitude: route[2].lng }}
+      routeOrigin={{ label: "Obra Los Cedros · Chapinero", latitude: route[1].lat, longitude: route[1].lng }}
       serviceStatus={mapStatus}
-      vehicle={{ label: "HTZ774 · Transportes Andinos", latitude: routePosition[0], longitude: routePosition[1], heading: 270, speed: progress > 30 && progress < 96 ? 32 : 0 }}
+      vehicle={{ label: "HTZ774 · Transportes Andinos", latitude: route[0].lat, longitude: route[0].lng, speed: progress > 0 && progress < 100 ? 32 : 0 }}
     />
   );
 }
