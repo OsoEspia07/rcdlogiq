@@ -32,6 +32,7 @@ type GoogleNamespace = {
     LatLng: new (lat: number, lng: number) => GoogleLatLng;
     Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMap;
     Marker: new (options: Record<string, unknown>) => GoogleMarker;
+    Polyline: new (options: Record<string, unknown>) => GooglePolyline;
     SymbolPath: { FORWARD_CLOSED_ARROW: unknown };
     TravelMode: { DRIVING: string };
     event: { addListener: (instance: unknown, eventName: string, handler: () => void) => { remove: () => void } };
@@ -54,6 +55,11 @@ type GoogleMarker = {
   setMap: (map: GoogleMap | null) => void;
   setPosition: (position: { lat: number; lng: number }) => void;
   setTitle: (title: string) => void;
+};
+
+type GooglePolyline = {
+  setMap: (map: GoogleMap | null) => void;
+  setPath: (path: GoogleLatLng[]) => void;
 };
 
 type GoogleDirectionsResult = {
@@ -157,7 +163,7 @@ function distanceToRouteMeters(point: { latitude: number; longitude: number }, r
 
 function routePointAtProgress(path: GoogleLatLng[], progress: number) {
   if (!path.length) return null;
-  if (path.length === 1) return { latitude: path[0].lat(), longitude: path[0].lng(), heading: 0 };
+  if (path.length === 1) return { latitude: path[0].lat(), longitude: path[0].lng(), heading: 0, segmentIndex: 0 };
   const lengths = path.slice(1).map((point, index) => metersBetween(
     { latitude: path[index].lat(), longitude: path[index].lng() },
     { latitude: point.lat(), longitude: point.lng() },
@@ -177,7 +183,7 @@ function routePointAtProgress(path: GoogleLatLng[], progress: number) {
       const latitude2 = (end.lat() * Math.PI) / 180;
       const y = Math.sin(deltaLongitude) * Math.cos(latitude2);
       const x = Math.cos(latitude1) * Math.sin(latitude2) - Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(deltaLongitude);
-      return { latitude, longitude, heading: ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360 };
+      return { latitude, longitude, heading: ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360, segmentIndex: index };
     }
     remaining -= length;
   }
@@ -192,6 +198,21 @@ function simulatedRoutePoint(legs: GoogleLatLng[][], progress: number) {
   const legIndex = value <= stopProgress ? 0 : 1;
   const legProgress = legIndex === 0 ? value / stopProgress * 100 : (value - stopProgress) / (100 - stopProgress) * 100;
   return routePointAtProgress(legs[Math.min(legIndex, legs.length - 1)], legProgress);
+}
+
+function remainingRoutePath(legs: GoogleLatLng[][], progress: number, maps: GoogleNamespace["maps"]) {
+  if (!legs.length) return [];
+  const value = Math.max(0, Math.min(100, progress));
+  const legIndex = legs.length > 1 && value > 26 ? 1 : 0;
+  const legProgress = legs.length === 1
+    ? value
+    : legIndex === 0 ? value / 26 * 100 : (value - 26) / 74 * 100;
+  const path = legs[Math.min(legIndex, legs.length - 1)];
+  const current = routePointAtProgress(path, legProgress);
+  if (!current) return [];
+  const remaining = [new maps.LatLng(current.latitude, current.longitude), ...path.slice(current.segmentIndex + 1)];
+  for (let index = legIndex + 1; index < legs.length; index += 1) remaining.push(...legs[index].slice(1));
+  return remaining;
 }
 
 function loadGoogleMaps(apiKey: string) {
@@ -230,6 +251,7 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
   const destinationMarkerRef = useRef<GoogleMarker | null>(null);
   const directionsServiceRef = useRef<GoogleDirectionsService | null>(null);
   const directionsRendererRef = useRef<GoogleDirectionsRenderer | null>(null);
+  const simulatedPolylineRef = useRef<GooglePolyline | null>(null);
   const routePathRef = useRef<GoogleLatLng[]>([]);
   const routeLegPathsRef = useRef<GoogleLatLng[][]>([]);
   const lastRouteAtRef = useRef(0);
@@ -387,12 +409,29 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
           setRouteMessage("No se pudo calcular la ruta con Google Maps.");
           return;
         }
+        directionsRenderer.set("polylineOptions", simulatedProgress === undefined
+          ? { strokeColor: "#2f46ff", strokeOpacity: 0.95, strokeWeight: 6, icons: [{ icon: { fillColor: "#ffffff", fillOpacity: 1, path: maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.8, strokeColor: "#2f46ff", strokeWeight: 1.5 }, offset: "12%", repeat: "90px" }] }
+          : { strokeOpacity: 0, strokeWeight: 0, icons: [] });
         directionsRenderer.setDirections(result);
         routePathRef.current = result.routes[0].overview_path;
         routeLegPathsRef.current = result.routes[0].legs?.map((leg) => {
           const path = leg.steps?.flatMap((step) => step.path) ?? [];
           return path.length ? path : result.routes[0].overview_path;
         }) ?? [result.routes[0].overview_path];
+        if (simulatedProgress !== undefined) {
+          if (!simulatedPolylineRef.current) {
+            simulatedPolylineRef.current = new maps.Polyline({
+              map: mapRef.current,
+              path: remainingRoutePath(routeLegPathsRef.current, simulatedProgress, maps),
+              strokeColor: "#2f46ff",
+              strokeOpacity: 0.95,
+              strokeWeight: 6,
+              icons: [{ icon: { fillColor: "#ffffff", fillOpacity: 1, path: maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.8, strokeColor: "#2f46ff", strokeWeight: 1.5 }, offset: "12%", repeat: "90px" }],
+            });
+          } else {
+            simulatedPolylineRef.current.setPath(remainingRoutePath(routeLegPathsRef.current, simulatedProgress, maps));
+          }
+        }
         lastRouteAtRef.current = Date.now();
         lastRouteOriginRef.current = hasCoords(vehicle) ? { latitude: vehicle.latitude, longitude: vehicle.longitude } : null;
         lastTargetKeyRef.current = routeSignature;
@@ -426,6 +465,9 @@ export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle =
 
     const simulatedPoint = simulatedProgress === undefined ? null : simulatedRoutePoint(routeLegPathsRef.current, simulatedProgress);
     const markerPoint = simulatedPoint ?? (hasCoords(vehicle) ? { latitude: vehicle.latitude, longitude: vehicle.longitude, heading: (vehicle as VehiclePoint).heading ?? 0 } : null);
+    if (simulatedProgress !== undefined && maps) {
+      simulatedPolylineRef.current?.setPath(remainingRoutePath(routeLegPathsRef.current, simulatedProgress, maps));
+    }
 
     if (markerPoint && hasCoords(vehicle)) {
       vehicleMarkerRef.current?.setMap(map);

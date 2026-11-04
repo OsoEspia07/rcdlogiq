@@ -66,7 +66,7 @@ export function JourneyClient() {
     }
     const target = stages[nextIndex].point;
     const startedAt = performance.now();
-    const duration = 14_000;
+    const duration = nextIndex === 1 ? 90_000 : nextIndex === 4 ? 180_000 : 8_000;
     const timer = window.setInterval(() => {
       const ratio = Math.min(1, (performance.now() - startedAt) / duration);
       const nextProgress = startProgress + (target - startProgress) * ratio;
