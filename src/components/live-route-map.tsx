@@ -16,6 +16,7 @@ type VehiclePoint = MapPoint & {
 
 type Props = {
   allowLocationRequest?: boolean;
+  autoFollowVehicle?: boolean;
   destination: MapPoint | null;
   onRequestLocation?: () => void;
   routeOrigin: MapPoint | null;
@@ -178,7 +179,7 @@ function loadGoogleMaps(apiKey: string) {
   return googleMapsPromise;
 }
 
-export function LiveRouteMap({ allowLocationRequest = false, destination, onRequestLocation, routeOrigin, serviceStatus, vehicle }: Props) {
+export function LiveRouteMap({ allowLocationRequest = false, autoFollowVehicle = true, destination, onRequestLocation, routeOrigin, serviceStatus, vehicle }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMap | null>(null);
@@ -351,7 +352,7 @@ export function LiveRouteMap({ allowLocationRequest = false, destination, onRequ
         lastTargetKeyRef.current = routeSignature;
         setRouteState("ready");
         setRouteMessage(useWorksiteStop ? "Ruta activa con parada operativa." : "Ruta hacia proxima parada activa.");
-        if (hasCoords(vehicle) && followVehicle && Date.now() > followPausedUntilRef.current) {
+        if (hasCoords(vehicle) && autoFollowVehicle && followVehicle && Date.now() > followPausedUntilRef.current) {
           mapRef.current?.panTo({ lat: vehicle.latitude, lng: vehicle.longitude });
         }
       },
@@ -384,7 +385,7 @@ export function LiveRouteMap({ allowLocationRequest = false, destination, onRequ
       vehicleMarkerRef.current?.setIcon(vehicleIcon());
     }
 
-    if (hasCoords(vehicle) && followVehicle && Date.now() > followPausedUntilRef.current) {
+    if (hasCoords(vehicle) && autoFollowVehicle && followVehicle && Date.now() > followPausedUntilRef.current) {
       map.panTo({ lat: vehicle.latitude, lng: vehicle.longitude });
     }
 
@@ -400,7 +401,7 @@ export function LiveRouteMap({ allowLocationRequest = false, destination, onRequ
     }
   // The route recalculation helpers intentionally read the latest marker refs and props in this effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRouteTargetKey, destination, followVehicle, mapState, originKey, routeOrigin, routeSignature, serviceStatus, targetKey, vehicle]);
+  }, [activeRouteTargetKey, autoFollowVehicle, destination, followVehicle, mapState, originKey, routeOrigin, routeSignature, serviceStatus, targetKey, vehicle]);
 
   function centerVehicle() {
     if (!hasCoords(vehicle)) {
@@ -415,7 +416,6 @@ export function LiveRouteMap({ allowLocationRequest = false, destination, onRequ
   }
 
   if (!apiKey) {
-    const embedOrigin = hasCoords(vehicle) ? vehicle : routeOrigin;
     return (
       <div className="overflow-hidden rounded-[8px] border border-[#d8ded6] bg-white">
         <div className="relative h-[360px] min-h-72 w-full">
@@ -423,7 +423,7 @@ export function LiveRouteMap({ allowLocationRequest = false, destination, onRequ
             className="h-full w-full"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            src={googleEmbedRouteUrl(embedOrigin, routeOrigin, destination)}
+            src={googleEmbedRouteUrl(routeOrigin, null, destination)}
             title="Ruta operacional de respaldo"
           />
           <div className="absolute left-3 top-3 max-w-sm rounded-[8px] border border-[#ead197] bg-white/95 p-3 text-xs font-semibold text-[#6a5520] shadow-sm">
